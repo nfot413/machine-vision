@@ -1,4 +1,6 @@
 numpy
 torch
 torchvision
+streamlit
+pillow
 opencv-python
