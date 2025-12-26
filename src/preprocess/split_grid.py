@@ -84,6 +84,7 @@ def _pick_lines_from_projection(proj: np.ndarray, n_lines: int) -> list[int]:
 def _remove_border_components(bin_img: np.ndarray) -> np.ndarray:
     if bin_img is None or bin_img.size == 0:
         return bin_img
+
     x = (bin_img > 0).astype(np.uint8)
     n, labels, stats, _ = cv2.connectedComponentsWithStats(x, connectivity=8)
     if n <= 1:
@@ -92,16 +93,47 @@ def _remove_border_components(bin_img: np.ndarray) -> np.ndarray:
     H, W = x.shape[:2]
     keep = np.zeros_like(x)
 
+    small_area_thr = max(60, int(0.01 * H * W))
+
     for cid in range(1, n):
         x0, y0, w, h, area = stats[cid]
         x1 = x0 + w - 1
         y1 = y0 + h - 1
         touches = (x0 <= 0) or (y0 <= 0) or (x1 >= W - 1) or (y1 >= H - 1)
-        if touches:
+
+        if touches and area <= small_area_thr:
             continue
+
         keep[labels == cid] = 255
 
     return keep
+
+
+def _rect_union(b1: tuple[int, int, int, int], b2: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+    x0 = min(b1[0], b2[0])
+    y0 = min(b1[1], b2[1])
+    x1 = max(b1[2], b2[2])
+    y1 = max(b1[3], b2[3])
+    return (x0, y0, x1, y1)
+
+
+def _rect_linf_distance(b1: tuple[int, int, int, int], b2: tuple[int, int, int, int]) -> int:
+    x0a, y0a, x1a, y1a = b1
+    x0b, y0b, x1b, y1b = b2
+
+    dx = 0
+    if x1a < x0b:
+        dx = x0b - x1a - 1
+    elif x1b < x0a:
+        dx = x0a - x1b - 1
+
+    dy = 0
+    if y1a < y0b:
+        dy = y0b - y1a - 1
+    elif y1b < y0a:
+        dy = y0a - y1b - 1
+
+    return int(max(dx, dy))
 
 
 def _keep_largest_component(bin_img: np.ndarray, min_area: int = 40) -> np.ndarray:
@@ -110,6 +142,7 @@ def _keep_largest_component(bin_img: np.ndarray, min_area: int = 40) -> np.ndarr
     if n <= 1:
         return bin_img * 0
 
+    # 找最大连通域
     best = -1
     best_area = 0
     for cid in range(1, n):
@@ -121,8 +154,42 @@ def _keep_largest_component(bin_img: np.ndarray, min_area: int = 40) -> np.ndarr
     if best < 0 or best_area < min_area:
         return bin_img * 0
 
+    H, W = x.shape[:2]
+
+    def bbox(cid: int) -> tuple[int, int, int, int]:
+        x0 = int(stats[cid, cv2.CC_STAT_LEFT])
+        y0 = int(stats[cid, cv2.CC_STAT_TOP])
+        w = int(stats[cid, cv2.CC_STAT_WIDTH])
+        h = int(stats[cid, cv2.CC_STAT_HEIGHT])
+        return (x0, y0, x0 + w - 1, y0 + h - 1)
+
+    keep_ids = {best}
+    keep_box = bbox(best)
+
+    gap = max(3, int(0.08 * max(H, W)))
+
+    area_thr = max(5, min_area // 4, int(0.01 * best_area))
+
+    changed = True
+    while changed:
+        changed = False
+        for cid in range(1, n):
+            if cid in keep_ids:
+                continue
+            area = int(stats[cid, cv2.CC_STAT_AREA])
+            if area < area_thr:
+                continue
+
+            cb = bbox(cid)
+            dist = _rect_linf_distance(keep_box, cb)
+            if dist <= gap:
+                keep_ids.add(cid)
+                keep_box = _rect_union(keep_box, cb)
+                changed = True
+
     out = np.zeros_like(x, dtype=np.uint8)
-    out[labels == best] = 255
+    for cid in keep_ids:
+        out[labels == cid] = 255
     return out
 
 
