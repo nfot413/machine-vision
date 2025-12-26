@@ -9,7 +9,7 @@ save_dir = "$_mnist"
 os.makedirs(save_dir, exist_ok=True)
 
 
-img = cv2.imread("$4.jpg")
+img = cv2.imread("$8.jpg")
 
 
 if img is None:
@@ -51,7 +51,7 @@ for idx, contour in enumerate(contours):
     mnist_canvas[y_pad:y_pad + resized_h, x_pad:x_pad + resized_w] = resized_dollar
 
     # 保存到文件夹
-    save_path = os.path.join(save_dir, f"4_dollar_mnist_{valid_count}.png")
+    save_path = os.path.join(save_dir, f"8_dollar_mnist_{valid_count}.png")
     Image.fromarray(mnist_canvas).save(save_path)
     valid_count += 1
 

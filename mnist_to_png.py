@@ -7,7 +7,7 @@ from tensorflow.keras.datasets import mnist
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
 # 2. 定义保存路径（建议创建分级目录：根目录/训练集/标签/图片.jpg）
-root_dir = "mnist_"
+root_dir = "mnist"
 train_dir = os.path.join(root_dir, "train")
 test_dir = os.path.join(root_dir, "test")
 
