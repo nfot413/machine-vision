@@ -4,12 +4,16 @@ import time
 
 import streamlit as st
 from PIL import Image
+import torch
 
-from src.utils.utils import device_auto
+from src.utils.utils import device_auto, get_image_transform
 from src.train.train import train_and_save
 from src.infer.infer import load_model, predict_image_bytes
 from src.models.CNN import CNN
 from src.infer.infer_test import evaluate_testset
+
+from src.preprocess.flatten_grid import flatten_image_pil
+from src.preprocess.split_grid import split_flattened_pil
 
 
 def main():
@@ -71,7 +75,6 @@ def main():
         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
         st.image(img, caption="上传的图片", width=220)
 
-        # 优先使用 session 中的模型（如果网页里刚训练过）
         if "model_state" in st.session_state:
             model = CNN().to(dev)
             model.load_state_dict(st.session_state["model_state"])
@@ -110,7 +113,7 @@ def main():
                     seed=42,
                     device=dev,
                     sample_per_class=10,
-                    sample_seed=int(time.time()),  # 样例每次测试都随机
+                    sample_seed=int(time.time()),
                 )
             st.session_state["test_result"] = (overall_acc, per_class_acc, samples)
 
@@ -121,7 +124,7 @@ def main():
         overall_acc, per_class_acc, samples = st.session_state["test_result"]
 
         st.subheader("测试结果")
-        st.write(f"**总正确率（5000 张）：** `{overall_acc:.4f}`")
+        st.write(f"**总正确率：** `{overall_acc:.4f}`")
 
         st.write("**各类别正确率：**")
         for k in range(10):
@@ -135,6 +138,47 @@ def main():
                 with cols[j]:
                     img = Image.open(img_path).convert("RGB")
                     st.image(img, caption=f"true={k}, pred={pred}", use_container_width=True)
+
+    # =========================
+    # 9x13 grid preprocess + infer (no local save)
+    # =========================
+    st.divider()
+    st.header("9x13 方格纸照片识别")
+
+    up_grid = st.file_uploader("上传方格纸照片（png/jpg）", type=["png", "jpg", "jpeg"], key="grid_uploader")
+    if up_grid is not None:
+        img_bytes = up_grid.getvalue()
+        raw = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        st.image(raw, caption="原始照片", width=320)
+
+        flat = flatten_image_pil(raw, cols=9, rows=13, cell_size=64)
+        st.image(flat, caption="拉平结果", use_container_width=True)
+
+        digits = split_flattened_pil(flat, cols=9, rows=13, inner_pad=0.10)
+
+        if "model_state" in st.session_state:
+            model = CNN().to(dev)
+            model.load_state_dict(st.session_state["model_state"])
+            model.eval()
+        else:
+            if not ckpt_path.exists():
+                st.warning(f"没有找到权重文件：{ckpt_path}，请先训练。")
+                st.stop()
+            model, _ = load_model(ckpt_path, device=dev)
+
+        tfm = get_image_transform()
+        batch = torch.stack([tfm(d.convert("RGB")) for d in digits], dim=0).to(dev)
+
+        with torch.no_grad():
+            pred = model(batch).argmax(dim=1).detach().cpu().numpy().tolist()
+
+        st.subheader("分割结果 + 预测")
+        for r in range(13):
+            cols = st.columns(9)
+            for c in range(9):
+                i = r * 9 + c
+                with cols[c]:
+                    st.image(digits[i], caption=str(pred[i]), use_container_width=True)
 
 
 if __name__ == "__main__":
