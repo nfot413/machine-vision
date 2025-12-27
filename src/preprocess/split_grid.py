@@ -7,22 +7,23 @@ import cv2
 import numpy as np
 
 
-def remove_grid_lines(image_bgr: np.ndarray) -> np.ndarray:
+def remove_grid_lines(image_bgr):
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
+    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (60, 1))
     horizontal_lines = cv2.morphologyEx(binary, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
 
-    vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
+    vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 60))
     vertical_lines = cv2.morphologyEx(binary, cv2.MORPH_OPEN, vertical_kernel, iterations=2)
 
     grid_lines = cv2.add(horizontal_lines, vertical_lines)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    grid_lines_dilated = cv2.dilate(grid_lines, kernel, iterations=1)
 
     binary_clean = binary.copy()
-    binary_clean[grid_lines > 0] = 0
+    binary_clean[grid_lines_dilated > 0] = 0
     return binary_clean
-
 
 def _slice_grid_to_pil_list(
     binary_img: np.ndarray,
