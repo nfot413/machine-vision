@@ -34,6 +34,6 @@ Thumbs.db
 "\316\270.py"
 "\342\212\245.py"
 9x13_grid_mnist
-mnist_test_500/
-mnist_train_1000/
-mnist.zip
+
+*.jpg
+*.png
