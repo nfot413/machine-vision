@@ -14,6 +14,10 @@ from src.infer.infer_test import evaluate_testset
 
 from src.preprocess.flatten_grid import flatten_image_pil
 from src.preprocess.split_grid import split_flattened_pil
+from src.preprocess.split_grid import remove_grid_lines
+
+import cv2 
+import numpy as np
 
 
 def main():
@@ -153,6 +157,10 @@ def main():
 
         flat = flatten_image_pil(raw, cols=9, rows=13, cell_size=64)
         st.image(flat, caption="拉平结果", use_container_width=True)
+
+        flat_bgr = cv2.cvtColor(np.array(flat.convert("RGB")), cv2.COLOR_RGB2BGR)
+        binary_clean = remove_grid_lines(flat_bgr)
+        st.image(binary_clean, caption="去除网格 + 二值化结果", use_container_width=True)
 
         digits = split_flattened_pil(flat, cols=9, rows=13, inner_pad=0.10)
 
