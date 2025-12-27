@@ -144,7 +144,7 @@ def main():
                     st.image(img, caption=f"true={k}, pred={pred}", use_container_width=True)
 
     # =========================
-    # 9x13 grid preprocess + infer (no local save)
+    # 9x13 grid preprocess + infer
     # =========================
     st.divider()
     st.header("9x13 方格纸照片识别")
