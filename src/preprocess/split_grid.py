@@ -19,11 +19,8 @@ def remove_grid_lines(image_bgr: np.ndarray) -> np.ndarray:
 
     grid_lines = cv2.add(horizontal_lines, vertical_lines)
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    grid_lines_dilated = cv2.dilate(grid_lines, kernel, iterations=1)
-
     binary_clean = binary.copy()
-    binary_clean[grid_lines_dilated > 0] = 0
+    binary_clean[grid_lines > 0] = 0
     return binary_clean
 
 
