@@ -20,9 +20,19 @@ def load_model(ckpt_path: Path, device: torch.device | None = None) -> tuple[CNN
     return model, dev
 
 
+def _is_all_black(img: Image.Image) -> bool:
+    g = img.convert("L")
+    lo, hi = g.getextrema()
+    return hi == 0
+
+
 @torch.no_grad()
-def predict_image_bytes(image_bytes: bytes, model: CNN, device: torch.device) -> int:
+def predict_image_bytes(image_bytes: bytes, model: CNN, device: torch.device):
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+    if _is_all_black(img):
+        return "empty"
+
     x = _TFM(img).unsqueeze(0).to(device)
     logits = model(x)
     prob = F.softmax(logits, dim=1)[0]
@@ -46,6 +56,11 @@ def main():
     model.eval()
 
     img = Image.open(args.image).convert("RGB")
+
+    if _is_all_black(img):
+        print("pred: empty")
+        return
+
     x = _TFM(img).unsqueeze(0).to(dev)
 
     with torch.no_grad():

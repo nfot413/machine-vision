@@ -8,7 +8,7 @@ import torch
 
 from src.utils.utils import device_auto, get_image_transform
 from src.train.train import train_and_save
-from src.infer.infer import load_model, predict_image_bytes
+from src.infer.infer import load_model, predict_image_bytes, _is_all_black
 from src.models.CNN import CNN
 from src.infer.infer_test import evaluate_testset
 
@@ -180,13 +180,14 @@ def main():
         with torch.no_grad():
             pred = model(batch).argmax(dim=1).detach().cpu().numpy().tolist()
 
-        st.subheader("分割结果 + 预测")
-        for r in range(13):
-            cols = st.columns(9)
-            for c in range(9):
-                i = r * 9 + c
-                with cols[c]:
-                    st.image(digits[i], caption=str(pred[i]), use_container_width=True)
+    st.subheader("分割结果 + 预测")
+    for r in range(13):
+        cols = st.columns(9)
+        for c in range(9):
+            i = r * 9 + c
+            with cols[c]:
+                cap = "empty" if _is_all_black(digits[i]) else str(pred[i])
+                st.image(digits[i], caption=cap, use_container_width=True)
 
 
 if __name__ == "__main__":
