@@ -18,7 +18,7 @@ class MNISTSplitter:
             source_path: 原始MNIST训练集路径，包含0-9子文件夹
         """
         self.source_path = Path(source_path)
-        self.train_path = Path("./mnist_train_1500")
+        self.train_path = Path("./mnist_train_1000")  # 修改为1000
         self.test_path = Path("./mnist_test_500")
         self.classes = [str(i) for i in range(10)]
 
@@ -56,12 +56,12 @@ class MNISTSplitter:
 
         return len(available_classes) > 0
 
-    def split_images(self, train_per_class=1500, test_per_class=500, random_seed=42):
+    def split_images(self, train_per_class=1000, test_per_class=500, random_seed=42):
         """
         从每个类别中随机分割图片为训练集和测试集
 
         Args:
-            train_per_class: 每个类别的训练集数量
+            train_per_class: 每个类别的训练集数量（修改为1000）
             test_per_class: 每个类别的测试集数量
             random_seed: 随机种子，确保可重复性
         """
@@ -151,7 +151,7 @@ class MNISTSplitter:
 
         return train_counts, test_counts
 
-    def verify_split(self, expected_train=1500, expected_test=500):
+    def verify_split(self, expected_train=1000, expected_test=500):
         """验证分割的数据集"""
         print("\n" + "=" * 60)
         print("验证分割的数据集...")
@@ -300,8 +300,8 @@ class MNISTSplitter:
 
             f.write("分割比例:\n")
             f.write("-" * 30 + "\n")
-            f.write("每个类别: 1500张训练集 + 500张测试集\n")
-            f.write("总计: 15000张训练集 + 5000张测试集 = 20000张图片\n\n")
+            f.write("每个类别: 1000张训练集 + 500张测试集\n")  # 修改为1000
+            f.write("总计: 10000张训练集 + 5000张测试集 = 15000张图片\n\n")  # 修改为10000和15000
 
             f.write(f"创建时间: {os.path.getctime(self.train_path)}\n")
 
@@ -349,7 +349,7 @@ class MNISTSplitter:
         except Exception as e:
             print(f"⚠️ 创建{dataset_name}CSV文件时出错: {e}")
 
-    def run(self, train_per_class=1500, test_per_class=500):
+    def run(self, train_per_class=1000, test_per_class=500):
         """运行完整的分割流程"""
         print("🚀 MNIST数据集分割器")
         print("📁 从每个类别中随机分割图片为训练集和测试集")
@@ -392,4 +392,4 @@ if __name__ == "__main__":
 
     # 创建分割器并运行
     splitter = MNISTSplitter(SOURCE_PATH)
-    splitter.run(train_per_class=1500, test_per_class=500)
+    splitter.run(train_per_class=1000, test_per_class=500)  # 修改这里：训练集1000，测试集500
