@@ -14,10 +14,10 @@ from src.infer.infer_test import evaluate_testset
 
 from src.preprocess.flatten_grid import flatten_image_pil
 from src.preprocess.split_grid import split_flattened_pil
-from src.preprocess.split_grid import remove_grid_lines 
+from src.preprocess.split_grid import remove_grid_lines
 
-import cv2 
-import numpy as np  
+import cv2
+import numpy as np
 
 
 def main():
@@ -31,6 +31,13 @@ def main():
 
     dev = device_auto()
     st.write(f"**Device:** `{dev}`")
+
+    if "grid_digits" not in st.session_state:
+        st.session_state["grid_digits"] = []
+    if "grid_pred" not in st.session_state:
+        st.session_state["grid_pred"] = []
+    if "grid_cell_size" not in st.session_state:
+        st.session_state["grid_cell_size"] = (28, 28)
 
     # =========================
     # Train
@@ -89,8 +96,8 @@ def main():
                 st.stop()
             model, _ = load_model(ckpt_path, device=dev)
 
-        pred = predict_image_bytes(img_bytes, model, dev)
-        st.write(f"**预测结果：** `{pred}`")
+        pred_single = predict_image_bytes(img_bytes, model, dev)
+        st.write(f"**预测结果：** `{pred_single}`")
 
     # =========================
     # Local test mode
@@ -138,10 +145,10 @@ def main():
         for k in range(10):
             st.markdown(f"### 类别 {k}")
             cols = st.columns(10)
-            for j, (img_path, pred) in enumerate(samples.get(k, [])):
+            for j, (img_path, pred_k) in enumerate(samples.get(k, [])):
                 with cols[j]:
                     img = Image.open(img_path).convert("RGB")
-                    st.image(img, caption=f"true={k}, pred={pred}", use_container_width=True)
+                    st.image(img, caption=f"true={k}, pred={pred_k}", use_container_width=True)
 
     # =========================
     # 9x13 grid preprocess + infer
@@ -149,7 +156,10 @@ def main():
     st.divider()
     st.header("9x13 方格纸照片识别")
 
-    up_grid = st.file_uploader("上传方格纸照片（png/jpg）", type=["png", "jpg", "jpeg"], key="grid_uploader")
+    up_grid = st.file_uploader(
+        "上传方格纸照片（png/jpg）", type=["png", "jpg", "jpeg"], key="grid_uploader"
+    )
+
     if up_grid is not None:
         img_bytes = up_grid.getvalue()
         raw = Image.open(io.BytesIO(img_bytes)).convert("RGB")
@@ -164,30 +174,58 @@ def main():
 
         digits = split_flattened_pil(flat, cols=9, rows=13, inner_pad=0.10)
 
-        if "model_state" in st.session_state:
-            model = CNN().to(dev)
-            model.load_state_dict(st.session_state["model_state"])
-            model.eval()
+        if len(digits) == 0:
+            st.warning("分割结果为空：没有得到任何格子图像。请检查拉平/分割参数或输入照片质量。")
+            st.session_state["grid_digits"] = []
+            st.session_state["grid_pred"] = []
         else:
-            if not ckpt_path.exists():
-                st.warning(f"没有找到权重文件：{ckpt_path}，请先训练。")
-                st.stop()
-            model, _ = load_model(ckpt_path, device=dev)
+            # 保存用于占位显示的尺寸
+            st.session_state["grid_cell_size"] = digits[0].size
 
-        tfm = get_image_transform()
-        batch = torch.stack([tfm(d.convert("RGB")) for d in digits], dim=0).to(dev)
+            # load model
+            if "model_state" in st.session_state:
+                model = CNN().to(dev)
+                model.load_state_dict(st.session_state["model_state"])
+                model.eval()
+            else:
+                if not ckpt_path.exists():
+                    st.warning(f"没有找到权重文件：{ckpt_path}，请先训练。")
+                    st.stop()
+                model, _ = load_model(ckpt_path, device=dev)
 
-        with torch.no_grad():
-            pred = model(batch).argmax(dim=1).detach().cpu().numpy().tolist()
+            tfm = get_image_transform()
+            batch = torch.stack([tfm(d.convert("RGB")) for d in digits], dim=0).to(dev)
+
+            with torch.no_grad():
+                pred = model(batch).argmax(dim=1).detach().cpu().numpy().tolist()
+
+            # 存进 session_state，避免 rerun 丢失导致 UnboundLocalError
+            st.session_state["grid_digits"] = digits
+            st.session_state["grid_pred"] = pred
 
     st.subheader("分割结果 + 预测")
-    for r in range(13):
-        cols = st.columns(9)
-        for c in range(9):
-            i = r * 9 + c
-            with cols[c]:
-                cap = "empty" if _is_all_black(digits[i]) else str(pred[i])
-                st.image(digits[i], caption=cap, use_container_width=True)
+
+    digits = st.session_state.get("grid_digits", [])
+    pred = st.session_state.get("grid_pred", [])
+    cell_size = st.session_state.get("grid_cell_size", (28, 28))
+
+    if not digits:
+        st.info("还没有可显示的分割结果：请先上传方格纸照片并完成识别。")
+    else:
+        placeholder = Image.new("RGB", cell_size, (0, 0, 0))
+
+        for r in range(13):
+            cols = st.columns(9)
+            for c in range(9):
+                i = r * 9 + c
+                with cols[c]:
+                    if i < len(digits):
+                        img_cell = digits[i]
+                        p = pred[i] if i < len(pred) else "?"
+                        cap = "empty" if _is_all_black(img_cell) else str(p)
+                        st.image(img_cell, caption=cap, use_container_width=True)
+                    else:
+                        st.image(placeholder, caption="missing", use_container_width=True)
 
 
 if __name__ == "__main__":
