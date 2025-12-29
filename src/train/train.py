@@ -24,7 +24,7 @@ def _eval_acc(model, loader, device) -> float:
 
 def train_and_save(
     project_root: Path | None = None,
-    per_class: int = 1000,
+    per_class: int | None = None,
     train_ratio: float = 0.9,
     epochs: int = 5,
     batch_size: int = 128,
@@ -50,11 +50,18 @@ def train_and_save(
 
     train_indices, val_indices = [], []
     for c, idxs in class_indices.items():
-        if len(idxs) < per_class:
-            raise ValueError(f"class '{full_ds.classes[c]}' only has {len(idxs)} images, < {per_class}")
         random.shuffle(idxs)
-        picked = idxs[:per_class]
-        n_train = int(per_class * train_ratio)
+        if per_class is None:
+            picked = idxs
+            per_class_count = len(picked)
+        else:
+            if len(idxs) < per_class:
+                raise ValueError(
+                    f"class '{full_ds.classes[c]}' only has {len(idxs)} images, < {per_class}"
+                )
+            picked = idxs[:per_class]
+            per_class_count = per_class
+        n_train = int(per_class_count * train_ratio)
         train_indices += picked[:n_train]
         val_indices += picked[n_train:]
 

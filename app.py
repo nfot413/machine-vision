@@ -45,7 +45,14 @@ def main():
     st.divider()
     st.header("训练")
 
-    per_class = st.number_input("每类随机取样张数", min_value=1, value=1000, step=50)
+    use_all_per_class = st.checkbox("每类使用全部图片", value=True)
+    per_class = st.number_input(
+        "每类随机取样张数",
+        min_value=1,
+        value=1000,
+        step=50,
+        disabled=use_all_per_class,
+    )
     epochs = st.number_input("训练轮数", min_value=1, value=5, step=1)
     lr = st.number_input("学习率", min_value=1e-6, value=1e-3, step=1e-4, format="%.6f")
 
@@ -61,9 +68,10 @@ def main():
             log.write(f"epoch {ep}/{eps} | val_acc={acc:.4f}")
             prog.progress(ep / eps)
 
+        per_class_arg = None if use_all_per_class else int(per_class)
         model, saved_path, _ = train_and_save(
             project_root=root,
-            per_class=int(per_class),
+            per_class=per_class_arg,
             epochs=int(epochs),
             lr=float(lr),
             device=dev,
